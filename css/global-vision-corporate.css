@@ -876,7 +876,7 @@ html, body {
 .white_box form table {
 	border-spacing: 2.9mm !important; /* Org. CSS size is 10px */
 }
-.white_box form input, .white_box form input[type="button"], .white_box form input[type="submit"] {
+/* .white_box form input, .white_box form input[type="button"], .white_box form input[type="submit"] {
 	line-height: unset !important;
 	padding: padding: 11px 16px 11px 14px !important;
 	width: 100%;
@@ -901,7 +901,7 @@ html, body {
 	word-break: break-all;
   font-weight: bold;
   font-style: italic;
-}
+} */
 .white_box form input[type="button"]:hover {
 	border: 2px solid #000000;
 	color: #ffffff;
