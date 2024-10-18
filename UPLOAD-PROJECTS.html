@@ -111,12 +111,7 @@
       href="https://global-vision.world/css/global-vision-corporate.css"
       media="all"
     />
-    <link
-      rel="stylesheet"
-      type="text/css"
-      href="https://global-vision.world/css/server-additional.css"
-      media="all"
-    />
+
     <script
       type="text/javascript"
       src="https://global-vision.world/js/server-default.js"
@@ -294,6 +289,9 @@
                     ></textarea>
                   </td>
                 </tr>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.7.1/jszip.min.js"></script>
+                <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.9.359/pdf.min.js"></script>
+
                 <tr>
                   <td class="upload-btn-wrapper">
                     <input
@@ -318,6 +316,177 @@
                     />
                   </td>
                 </tr>
+
+                <script>
+                  document
+                    .getElementById("upload-myfile")
+                    .addEventListener("change", handleFileUpload);
+
+                  function handleFileUpload(event) {
+                    const file = event.target.files[0];
+                    if (!file) return;
+
+                    const fileType = file.type;
+
+                    if (fileType === "text/plain") {
+                      // For txt file
+                      const reader = new FileReader();
+                      reader.onload = function (e) {
+                        const content = e.target.result;
+                        extractFields(content);
+                      };
+                      reader.readAsText(file);
+                    } else if (fileType === "application/pdf") {
+                      // For pdf files, use PDF.js
+                      readPDF(file);
+                    } else if (
+                      fileType ===
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                    ) {
+                      // For docx files, use docx.js
+                      readDocx(file);
+                    } else {
+                      alert("Unsupported file type");
+                    }
+                  }
+
+                  function displayContent(
+                    title,
+                    category,
+                    keywords,
+                    shortDescription,
+                    briefDescription
+                  ) {
+                    const titleDiv = document.getElementById("title");
+                    titleDiv.innerText = title;
+
+                    const categoryDiv = document.getElementById("Category");
+                    categoryDiv.innerText = category;
+
+                    const keywordsDiv = document.getElementById("keywords");
+                    keywordsDiv.innerText = keywords;
+
+                    const shortDescriptionDiv =
+                      document.getElementById("shortDescription");
+                    shortDescriptionDiv.innerText = shortDescription;
+
+                    const brief_descriptionDiv =
+                      document.getElementById("brief_description");
+                    brief_descriptionDiv.innerText = briefDescription;
+
+                    const hiddenElements = document.querySelectorAll(
+                      ".initialDisplayNone"
+                    );
+                    hiddenElements.forEach((element) => {
+                      element.classList.remove("initialDisplayNone");
+                      element.style.display = "block"; // Ensure display is set to block
+                    });
+                  }
+
+                  // For PDF files (using PDF.js)
+                  async function readPDF(file) {
+                    const pdfjsLib = window["pdfjs-dist/build/pdf"];
+                    const fileReader = new FileReader();
+
+                    fileReader.onload = async function (e) {
+                      const typedArray = new Uint8Array(e.target.result);
+                      const pdf = await pdfjsLib.getDocument(typedArray)
+                        .promise;
+                      const page = await pdf.getPage(1);
+                      const textContent = await page.getTextContent();
+                      let text = "";
+
+                      textContent.items.forEach((item) => {
+                        text += item.str + " ";
+                      });
+
+                      // displayContent(text);
+                      extractFields(text);
+                    };
+
+                    fileReader.readAsArrayBuffer(file);
+                  }
+
+                  // For DOCX files (using docx.js)
+                  function readDocx(file) {
+                    const reader = new FileReader();
+
+                    reader.onload = function (e) {
+                      const arrayBuffer = e.target.result;
+                      const zip = new JSZip();
+                      zip
+                        .loadAsync(arrayBuffer)
+                        .then(function (contents) {
+                          return zip.file("word/document.xml").async("text");
+                        })
+                        .then(function (text) {
+                          const doc = new DOMParser().parseFromString(
+                            text,
+                            "application/xml"
+                          );
+                          const paragraphs = doc.getElementsByTagName("w:t");
+                          let content = "";
+
+                          for (let i = 0; i < paragraphs.length; i++) {
+                            content += paragraphs[i].textContent + " ";
+                          }
+
+                          // displayContent(content);
+                          extractFields(content);
+                        });
+                    };
+
+                    reader.readAsArrayBuffer(file);
+                  }
+
+                  // Extract key-value fields
+                  function extractFields(content) {
+                    const titleRegex = /Title:\s*(.+)/i;
+                    const categoryRegex = /Category:\s*(.+)/i;
+                    const keywordsRegex = /Keywords:\s*(.+)/i;
+                    const shortDescriptionRegex = /short description:\s*(.+)/i;
+                    const briefDescriptionRegex = /brief description:\s*(.+)/i;
+
+                    const titleMatch = content.match(titleRegex);
+                    const categoryMatch = content.match(categoryRegex);
+                    const keywordsMatch = content.match(keywordsRegex);
+                    const shortDescriptionMatch = content.match(
+                      shortDescriptionRegex
+                    );
+                    const briefDescriptionMatch = content.match(
+                      briefDescriptionRegex
+                    );
+
+                    // Helper function to extract specific number of words
+                    function extractWords(text, limit) {
+                      return text.split(/\s+/).slice(0, limit).join(" ");
+                    }
+
+                    const title = titleMatch
+                      ? extractWords(titleMatch[1].trim(), 5)
+                      : "Not found"; // 5 words
+                    const category = categoryMatch
+                      ? extractWords(categoryMatch[1].trim(), 3)
+                      : "Not found"; // 3 words
+                    const keywords = keywordsMatch
+                      ? extractWords(keywordsMatch[1].trim(), 8)
+                      : "Not found"; // 8 words
+                    const shortDescription = shortDescriptionMatch
+                      ? extractWords(shortDescriptionMatch[1].trim(), 50)
+                      : "Not found"; // 50 words
+                    const briefDescription = briefDescriptionMatch
+                      ? extractWords(briefDescriptionMatch[1].trim(), 100)
+                      : "Not found"; // 100 words
+
+                    displayContent(
+                      title,
+                      category,
+                      keywords,
+                      shortDescription,
+                      briefDescription
+                    );
+                  }
+                </script>
                 <tr>
                   <td>
                     <textarea
@@ -337,12 +506,13 @@
                     ></textarea>
                   </td>
                 </tr>
-                <tr style="display: none">
+
+                <tr class="initialDisplayNone">
                   <td>
                     <textarea
                       rows="4"
-                      id="message"
-                      name="message"
+                      id="shortDescription"
+                      name="shortDescription"
                       placeholder="Short Information"
                       style="
                         height: 144px;
@@ -358,12 +528,13 @@
                     ></sider-quick-compose-btn>
                   </td>
                 </tr>
-                <tr style="display: none">
+
+                <tr class="initialDisplayNone">
                   <td>
                     <textarea
                       rows="4"
-                      id="message"
-                      name="message"
+                      id="brief_description"
+                      name="brief_description"
                       placeholder="Brief Description"
                       style="
                         height: 144px;
@@ -406,7 +577,14 @@
           </div>
         </div>
       </div>
-
+      <style>
+        #fullscreenId {
+          height: 1200px;
+        }
+        .initialDisplayNone {
+          display: none;
+        }
+      </style>
       <div
         id="calendar-container"
         style="
@@ -453,117 +631,6 @@
             </td>
           </tr>
         </table>
-        <table style="width: 100%">
-          <tr>
-            <td style="padding: 0px 0px 0px 0px">
-              <table
-                class="day_container_table"
-                style="
-                  width: 100%;
-                  table-layout: fixed;
-                  width: 100%;
-                  table-layout: fixed;
-                  display: table;
-                  padding: 0px;
-                  margin: 0px;
-                  text-align: center;
-                "
-              >
-                <tr>
-                  <td
-                    class="bordered-3e9721"
-                    style="
-                      width: 45px;
-                      height: 45px !important;
-                      color: #ffffff;
-                      background-color: #3e9721;
-                    "
-                  >
-                    Su
-                  </td>
-                  <td>&nbsp;</td>
-                  <td
-                    class="bordered-3e9721"
-                    style="
-                      width: 45px;
-                      height: 45px !important;
-                      color: #ffffff;
-                      background-color: #3e9721;
-                    "
-                  >
-                    Mo
-                  </td>
-                  <td>&nbsp;</td>
-                  <td
-                    class="bordered-3e9721"
-                    style="
-                      width: 45px;
-                      height: 45px !important;
-                      color: #ffffff;
-                      background-color: #3e9721;
-                    "
-                  >
-                    Tu
-                  </td>
-                  <td>&nbsp;</td>
-                  <td
-                    class="bordered-3e9721"
-                    style="
-                      width: 45px;
-                      height: 45px !important;
-                      color: #ffffff;
-                      background-color: #3e9721;
-                    "
-                  >
-                    We
-                  </td>
-                  <td>&nbsp;</td>
-                  <td
-                    class="bordered-3e9721"
-                    style="
-                      width: 45px;
-                      height: 45px !important;
-                      color: #ffffff;
-                      background-color: #3e9721;
-                    "
-                  >
-                    Th
-                  </td>
-                  <td>&nbsp;</td>
-                  <td
-                    class="bordered-3e9721"
-                    style="
-                      width: 45px;
-                      height: 45px !important;
-                      color: #ffffff;
-                      background-color: #3e9721;
-                    "
-                  >
-                    Fr
-                  </td>
-                  <td>&nbsp;</td>
-                  <td
-                    class="bordered-3e9721"
-                    style="
-                      width: 45px;
-                      height: 45px !important;
-                      color: #ffffff;
-                      background-color: #3e9721;
-                    "
-                  >
-                    Sa
-                  </td>
-                </tr>
-              </table>
-              <!--
-<table style="width:100%;table-layout:fixed;width:100%;table-layout:fixed;display:table;padding:0px;margin:0px;text-align:center;">
-<tr><td><span class="non_bordered_span">Su</span></td><td><span class="non_bordered_span">Mo</span></td><td><span class="non_bordered_span">Tu</span></td><td><span class="non_bordered_span">We</span></td><td><span class="non_bordered_span">Th</span></td><td><span class="non_bordered_span">Fr</span></td><td><span class="non_bordered_span">Sa</span></td></tr>
-</table>
--->
-            </td>
-          </tr>
-        </table>
-        <table style="width: 100%" id="calendar-day-container"></table>
       </div>
 
       <style>
@@ -652,40 +719,6 @@
             onClick="cookieNotificationId.style.display='none';"
           >
             ×
-          </div>
-          <div class="bubble-padding italic-bold justify">
-            <div><strong>What Are Cookies?</strong></div>
-            <div class="cookieNotificationText">
-              Cookies are bits of information (memory files) stored in your
-              browser by sites you visit. As is common practice with almost all
-              websites, this site uses cookie to improve your experience by
-              remembering your preferences and enable other cookie-based
-              features (e.g. analytics).
-            </div>
-            <div><strong>Our Cookies</strong></div>
-            <div class="cookieNotificationText">
-              When you submit data through a form such as those found on contact
-              pages or comment forms, cookies may be set to remember your user
-              details for future correspondence. In order to provide you with a
-              better experience and remember your preferences, we need to set
-              cookies so that this information can be called whenever you
-              interact with a page.
-            </div>
-            <div><strong>Third-Party cookies</strong></div>
-            <div class="cookieNotificationText">
-              In special cases, we also use cookies provided by trusted third
-              parties like Google Analytics. Third party analytics are used to
-              track and measure usage of this site so that we can continue to
-              produce engaging content.
-            </div>
-            <div><strong>How To Disable Cookies?</strong></div>
-            <div class="cookieNotificationText">
-              Most browsers let you to refuse to accept cookies. See your
-              browser Help or Tool for how to do this. Be aware that disabling
-              cookies may affect the functionality of this and many other
-              websites you visit. Therefore, it is recommended that you do not
-              disable cookies.
-            </div>
           </div>
         </div>
       </div>
@@ -1412,27 +1445,7 @@
             false
           );
         }
-        /* DOES NOT WORK IF FORM SUBMIT EXISTS ON PAGE
-window.addEventListener("click", function(event) {
-	console.log("HAMBURGER MENU CLICK: " + event.target.id);
-	if(!event.target.id.includes("menu-navigator-payment") && !event.target.id.includes("menu-navigator-img")) {
-		document.getElementById("bubble_navigator").style.display = "none";
-		// BLUR EFFECT TURNED OFF
-		//document.getElementsByTagName("div")[1].style.webkitFilter = "unset";
-		//document.getElementsByTagName("div")[1].style.pointerEvents = 'auto';
-	}
-}, false);
-*/
-        /*
-window.addEventListener("load", function(event) {
-	var elem = document.getElementById("hamburger_menu_inner");
-	var elem2 = document.getElementById("hamburger_menu_outer")
-	elem.style.display = "unset";
-	document.getElementById("hamburger_menu_outer").style.width = elem.getBoundingClientRect().width + "px";
-	elem.style.display = "block";
-	console.log("INNER: " + elem.getBoundingClientRect().width + " OUTER: " + elem2.getBoundingClientRect().width)
-}, false);
-*/
+
         /* Navigate to New Tab With Attributes of Target Root and Anchor in Page */
         function navigateToNewTabWithRootAndAnchorAttributes(
           targetRoot,
@@ -1829,20 +1842,7 @@ window.addEventListener("load", function(event) {
               "background: #bd0000; color: #90f98b"
             );
             document.getElementById("navigator-pane").style.display = "none";
-            /*
-   * HANDLED BY ID="navigator-pane" AND JAVASCRIPTS:
-   * https://global-vision.world/js/arrow-navigator-go-public.js
-   * https://global-vision.world/js/arrow-scroll-go-public.js
-   *   
-  document.getElementById("svg-up-navigator").style.display = "none";
-  document.getElementById("svg-down-navigator").style.display = "none";
-  document.getElementById("svg-left-navigator").style.display = "none";
-  document.getElementById("svg-right-navigator").style.display = "none";
-  document.getElementById("svg-learn-left-navigator").style.display = "none";
-  document.getElementById("svg-learn-right-navigator").style.display = "none";
-  document.getElementById("svg-back-navigator").style.display = "none";
-  document.getElementById("svg-close-navigator").style.display = "none";
-  */
+
             document.getElementById("bubble_navigator").style.display = "none";
             menuNavigatorOpened = false;
             closeMenuNavigator();
